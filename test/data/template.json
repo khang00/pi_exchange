@@ -1,0 +1,7 @@
+{
+  "from": "some one some.one@gmail.com",
+  "to": "anyone@gmail.com",
+  "subject": "some subject",
+  "mimeType": "text/plain",
+  "body": "Hi {{TITLE}} {{FIRST_NAME}} {{LAST_NAME}}, \n Today, {{TODAY}}, we do some things"
+}

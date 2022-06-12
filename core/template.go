@@ -23,6 +23,7 @@ type Template struct {
 	Subject  string
 	MIMEType string
 	Body     Body
+	OperationPlaceHolder
 }
 
 type Body struct {
@@ -47,29 +48,36 @@ type PlaceHolder struct {
 }
 
 func NewTemplate(reader TemplateReader) (*Template, error) {
-	from, err := reader.GetFrom()
-	if err != nil {
-		return nil, err
-	}
+	from := reader.GetFrom()
+	to := reader.GetTo()
+	subject := reader.GetSubject()
+	mimeType := reader.GetMIMEType()
+	body := reader.GetBody()
 
-	to, err := reader.GetTo()
-	if err != nil {
-		return nil, err
-	}
+	parts := make([]Part, 0)
+	placeHolderLookup := make(map[string]int64, 0)
 
-	subject, err := reader.GetSubject()
-	if err != nil {
-		return nil, err
-	}
+	for i := 0; i < len(body); {
+		holderStartIndex := strings.Index(body[i:], "{{")
+		if holderStartIndex != -1 {
+			holderEndIndex := strings.Index(body[holderStartIndex:], "}}")
 
-	mimeType, err := reader.GetMIMEType()
-	if err != nil {
-		return nil, err
-	}
+			textPart := Part{
+				PartType:    PartTypeContent,
+				PartContent: body[i : holderStartIndex-1],
+			}
+			parts = append(parts, textPart)
 
-	body, err := reader.GetBody()
-	if err != nil {
-		return nil, err
+			placeHolderPart := Part{
+				PartType:    PartTypeHolder,
+				PartContent: body[holderStartIndex+2 : holderEndIndex-1],
+			}
+			parts = append(parts, placeHolderPart)
+
+			i = holderEndIndex + 2
+		} else {
+			i = len(body)
+		}
 	}
 
 	return &Template{
@@ -77,7 +85,11 @@ func NewTemplate(reader TemplateReader) (*Template, error) {
 		To:       to,
 		Subject:  subject,
 		MIMEType: mimeType,
-		Body:     body,
+		Body: Body{
+			placeHoldersLookup: placeHolderLookup,
+			Content:            parts,
+		},
+		OperationPlaceHolder: NewOperationPlaceHolder(),
 	}, nil
 }
 
@@ -111,8 +123,14 @@ func (t Template) parseEmail(obj DataObject) (Mail, error) {
 		if part.PartType == PartTypeContent {
 			body.WriteString(part.PartContent)
 		} else if part.PartType == PartTypeHolder {
-			placeHolderValue := obj[part.PartContent]
-			body.WriteString(placeHolderValue)
+			value, ok := t.getValueForPlaceHolder(part.PartContent)
+			if ok {
+				body.WriteString(value)
+			} else {
+				placeHolderValue := obj[part.PartContent]
+				body.WriteString(placeHolderValue)
+			}
+
 		} else {
 			return Mail{}, errors.New("part have wrong type")
 		}

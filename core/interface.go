@@ -1,11 +1,11 @@
 package core
 
 type TemplateReader interface {
-	GetFrom() (string, error)
-	GetTo() (string, error)
-	GetSubject() (string, error)
-	GetMIMEType() (string, error)
-	GetBody() (Body, error)
+	GetFrom() string
+	GetTo() string
+	GetSubject() string
+	GetMIMEType() string
+	GetBody() string
 }
 
 type DataReader interface {
